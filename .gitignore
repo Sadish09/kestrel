@@ -1,0 +1,64 @@
+# Build outputs
+build/
+**/build/
+*.o
+*.d
+*.elf
+*.bin
+*.hex
+*.map
+*.lst
+*.su
+*.gcno
+*.gcda
+*.gcov
+
+# Temporary/preprocessed/compiler output
+*.i
+*.s
+*.tmp
+*.temp
+*.bak
+*.orig
+*.rej
+
+# Logs and local run captures
+*.log
+*.trace
+*.dump
+openocd.log
+
+# Editor/IDE files
+.vscode/
+.idea/
+*.code-workspace
+*.swp
+*.swo
+*~
+.zed/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# just in case
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.env.*
+
+# CMake/Make generated files
+CMakeFiles/
+CMakeCache.txt
+cmake-build-*/
+compile_commands.json
+
+# Local hardware/debug artifacts
+*.svd.local
+*.cfg.local
+*.gdbinit.local
+
+internal/
