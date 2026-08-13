@@ -9,6 +9,7 @@
 #define USART1_BRR REG32(0x40013808u)
 #define USART1_CR1 REG32(0x4001380Cu)
 
+#define USART_SR_RXNE (1u << 5)
 #define USART_SR_TXE (1u << 7)
 #define USART_CR1_RE (1u << 2)
 #define USART_CR1_TE (1u << 3)
@@ -33,6 +34,24 @@ boot_status_t uart_protocol_init(void)
     USART1_CR1 = USART_CR1_UE | USART_CR1_TE | USART_CR1_RE;
 
     return BOOT_OK;
+}
+
+bool uart_protocol_char_available(void){
+    return (USART1_SR & USART_SR_RXNE) != 0u;
+}
+
+bool uart_protocol_read_char(char *ch){
+    if (!uart_protocol_char_available()){
+        return false;
+    }
+
+    if (ch != 0){
+        *ch = (char)(USART1_DR & 0xFFu);
+    } else {
+        (void)USART1_DR;
+    }
+
+    return true;
 }
 
 boot_status_t uart_protocol_receive_packet(uart_packet_t *packet){
