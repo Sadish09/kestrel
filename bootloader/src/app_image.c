@@ -1,6 +1,7 @@
 #include "../include/app_image.h"
 
 #include "../include/boot_config.h"
+#include "../include/crypto.h"
 #include "../include/flash.h"
 
 boot_status_t app_image_read_metadata(boot_app_metadata_t *metadata){
@@ -72,8 +73,10 @@ bool app_image_vector_table_is_sane(uint32_t app_base){
 }
 
 boot_status_t app_image_validate(const boot_app_metadata_t *metadata){
-    /* Stage 4: structural checks only. */
-    /* Stage 5 will add hash and signature verification here. */
+    uint8_t calculated_hash[BOOT_HASH_SIZE];
+    const uint8_t *app_flash_ptr;
+    boot_status_t status;
+    uint32_t i;
 
     if (!app_image_metadata_is_sane(metadata)){
         return BOOT_ERR_INVALID_METADATA;
@@ -83,8 +86,27 @@ boot_status_t app_image_validate(const boot_app_metadata_t *metadata){
         return BOOT_ERR_INVALID_IMAGE;
     }
 
-    /* Crypto verification not implemented yet. */
-    /* When Stage 5 is done, this will call crypto_sha256 and */
-    /* crypto_verify_signature before returning BOOT_OK. */
-    return BOOT_ERR_NOT_IMPLEMENTED;
+    /* Step 1: Calculate SHA-256 hash of application in flash */
+    app_flash_ptr = (const uint8_t *)(uintptr_t)metadata->app_base;
+    status = crypto_sha256(app_flash_ptr, (size_t)metadata->app_size, calculated_hash);
+
+    if (status != BOOT_OK){
+        return status;
+    }
+
+    /* Step 2: Compare calculated hash with metadata->app_hash */
+    for (i = 0u; i < BOOT_HASH_SIZE; i++){
+        if (calculated_hash[i] != metadata->app_hash[i]){
+            return BOOT_ERR_INVALID_IMAGE;
+        }
+    }
+
+    /* Step 3: Verify ECDSA P-256 signature using public key */
+    status = crypto_verify_signature(metadata->app_hash, metadata->app_signature);
+
+    if (status != BOOT_OK){
+        return BOOT_ERR_SIGNATURE_FAILED;
+    }
+
+    return BOOT_OK;
 }

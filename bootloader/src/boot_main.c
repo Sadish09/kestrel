@@ -29,7 +29,7 @@ boot_status_t boot_main(void){
         return status;
     }
 
-    (void)uart_protocol_send_text("Kestrel bootloader stage 4\r\n");
+    (void)uart_protocol_send_text("Kestrel bootloader stage 5\r\n");
 
     if (boot_select_mode() == BOOT_MODE_UPDATE){
         (void)uart_protocol_send_text("Mode: bootloader requested\r\n");
@@ -38,27 +38,30 @@ boot_status_t boot_main(void){
 
     (void)uart_protocol_send_text("Mode: try application\r\n");
 
-    /* Stage 4: read and validate metadata before jumping. */
+    /* Read metadata from 0x08003C00 */
     status = app_image_read_metadata(&metadata);
 
-    if (status == BOOT_OK && app_image_metadata_is_sane(&metadata)){
-        (void)uart_protocol_send_text("Metadata OK\r\n");
+    if (status == BOOT_OK){
+        /* Perform full cryptographic validation (SHA-256 hash + ECDSA signature) */
+        boot_status_t val_status = app_image_validate(&metadata);
 
-        if (app_image_vector_table_is_sane(metadata.app_base)){
-            (void)uart_protocol_send_text("Vector table OK, jumping\r\n");
+        if (val_status == BOOT_OK){
+            (void)uart_protocol_send_text("App hash & signature OK, jumping\r\n");
             return jump_to_application(metadata.app_base);
+        } else if (val_status == BOOT_ERR_INVALID_IMAGE){
+            (void)uart_protocol_send_text("Validation failed: SHA-256 hash mismatch!\r\n");
+        } else if (val_status == BOOT_ERR_SIGNATURE_FAILED){
+            (void)uart_protocol_send_text("Validation failed: ECDSA signature failed!\r\n");
+        } else {
+            (void)uart_protocol_send_text("Validation failed: invalid metadata struct\r\n");
         }
-
-        (void)uart_protocol_send_text("Vector table invalid\r\n");
     } else {
-        (void)uart_protocol_send_text("No valid metadata\r\n");
+        (void)uart_protocol_send_text("Metadata read failed\r\n");
     }
 
 #ifdef BOOT_DEV_MODE
-    /* Dev escape hatch: if metadata is missing or invalid but there is
-     * a plausible vector table at BOOT_APP_BASE, jump anyway.
-     * This allows flashing a raw app without metadata during development.
-     * Remove BOOT_DEV_MODE once metadata/crypto is fully wired. */
+    /* Dev escape hatch: if validation fails but BOOT_DEV_MODE is set,
+     * check vector table sanity and jump anyway. */
     (void)uart_protocol_send_text("DEV_MODE: checking vector table only\r\n");
 
     if (app_image_vector_table_is_sane(BOOT_APP_BASE)){
@@ -69,7 +72,7 @@ boot_status_t boot_main(void){
     (void)uart_protocol_send_text("DEV_MODE: no valid vector table either\r\n");
 #endif
 
-    (void)uart_protocol_send_text("Staying in bootloader\r\n");
+    (void)uart_protocol_send_text("Staying in bootloader mode\r\n");
     bootloader_blink_loop();
 
     return BOOT_ERR_INVALID_STATE;

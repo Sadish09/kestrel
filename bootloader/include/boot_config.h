@@ -25,9 +25,8 @@
 #define BOOT_SIGNATURE_SIZE ((uint32_t)64u)
 #define BOOT_PUBLIC_KEY_SIZE ((uint32_t)64u)
 
-/* Development mode: skip metadata checks and allow vector-table-only jump.
- * Remove this define once metadata/crypto validation is fully implemented. */
-#define BOOT_DEV_MODE 1
+/* Development mode disabled for secure boot enforcement test */
+/* #define BOOT_DEV_MODE 1 */
 
 #endif
 

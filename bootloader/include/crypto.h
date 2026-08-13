@@ -11,6 +11,7 @@ typedef struct{
 } boot_sha256_context_t;
 
 boot_status_t crypto_init(void);
+boot_status_t crypto_sha256(const uint8_t *data, size_t length, uint8_t hash[BOOT_HASH_SIZE]);
 boot_status_t crypto_sha256_start(boot_sha256_context_t *context);
 boot_status_t crypto_sha256_update(boot_sha256_context_t *context, const uint8_t *data, size_t length);
 boot_status_t crypto_sha256_finish(boot_sha256_context_t *context, uint8_t hash[BOOT_HASH_SIZE]);
