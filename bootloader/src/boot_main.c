@@ -14,7 +14,10 @@ static void bootloader_blink_loop(void){
 }
 
 boot_status_t boot_main(void){
-    boot_status_t status = hardware_init();
+    boot_status_t status;
+    boot_app_metadata_t metadata;
+
+    status = hardware_init();
 
     if (status != BOOT_OK){
         return status;
@@ -26,7 +29,7 @@ boot_status_t boot_main(void){
         return status;
     }
 
-    (void)uart_protocol_send_text("Kestrel bootloader stage 3\r\n");
+    (void)uart_protocol_send_text("Kestrel bootloader stage 4\r\n");
 
     if (boot_select_mode() == BOOT_MODE_UPDATE){
         (void)uart_protocol_send_text("Mode: bootloader requested\r\n");
@@ -35,12 +38,38 @@ boot_status_t boot_main(void){
 
     (void)uart_protocol_send_text("Mode: try application\r\n");
 
+    /* Stage 4: read and validate metadata before jumping. */
+    status = app_image_read_metadata(&metadata);
+
+    if (status == BOOT_OK && app_image_metadata_is_sane(&metadata)){
+        (void)uart_protocol_send_text("Metadata OK\r\n");
+
+        if (app_image_vector_table_is_sane(metadata.app_base)){
+            (void)uart_protocol_send_text("Vector table OK, jumping\r\n");
+            return jump_to_application(metadata.app_base);
+        }
+
+        (void)uart_protocol_send_text("Vector table invalid\r\n");
+    } else {
+        (void)uart_protocol_send_text("No valid metadata\r\n");
+    }
+
+#ifdef BOOT_DEV_MODE
+    /* Dev escape hatch: if metadata is missing or invalid but there is
+     * a plausible vector table at BOOT_APP_BASE, jump anyway.
+     * This allows flashing a raw app without metadata during development.
+     * Remove BOOT_DEV_MODE once metadata/crypto is fully wired. */
+    (void)uart_protocol_send_text("DEV_MODE: checking vector table only\r\n");
+
     if (app_image_vector_table_is_sane(BOOT_APP_BASE)){
-        (void)uart_protocol_send_text("App vector table OK, jumping\r\n");
+        (void)uart_protocol_send_text("DEV_MODE: jumping to app\r\n");
         return jump_to_application(BOOT_APP_BASE);
     }
 
-    (void)uart_protocol_send_text("No valid app vector table, staying in bootloader\r\n");
+    (void)uart_protocol_send_text("DEV_MODE: no valid vector table either\r\n");
+#endif
+
+    (void)uart_protocol_send_text("Staying in bootloader\r\n");
     bootloader_blink_loop();
 
     return BOOT_ERR_INVALID_STATE;

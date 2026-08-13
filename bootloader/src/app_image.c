@@ -1,15 +1,42 @@
 #include "../include/app_image.h"
 
 #include "../include/boot_config.h"
+#include "../include/flash.h"
 
 boot_status_t app_image_read_metadata(boot_app_metadata_t *metadata){
-    (void)metadata;
-    return BOOT_ERR_NOT_IMPLEMENTED;
+    if (metadata == NULL){
+        return BOOT_ERR_INVALID_ARGUMENT;
+    }
+
+    return flash_read_metadata(metadata);
 }
 
 bool app_image_metadata_is_sane(const boot_app_metadata_t *metadata){
-    (void)metadata;
-    return false;
+    if (metadata == NULL){
+        return false;
+    }
+
+    if (metadata->magic != BOOT_METADATA_MAGIC){
+        return false;
+    }
+
+    if (metadata->metadata_version != BOOT_METADATA_VERSION){
+        return false;
+    }
+
+    if (metadata->app_base != BOOT_APP_BASE){
+        return false;
+    }
+
+    if (metadata->app_size == 0u){
+        return false;
+    }
+
+    if (metadata->app_size > BOOT_APP_MAX_SIZE){
+        return false;
+    }
+
+    return true;
 }
 
 bool app_image_vector_table_is_sane(uint32_t app_base){
@@ -45,6 +72,19 @@ bool app_image_vector_table_is_sane(uint32_t app_base){
 }
 
 boot_status_t app_image_validate(const boot_app_metadata_t *metadata){
-    (void)metadata;
+    /* Stage 4: structural checks only. */
+    /* Stage 5 will add hash and signature verification here. */
+
+    if (!app_image_metadata_is_sane(metadata)){
+        return BOOT_ERR_INVALID_METADATA;
+    }
+
+    if (!app_image_vector_table_is_sane(metadata->app_base)){
+        return BOOT_ERR_INVALID_IMAGE;
+    }
+
+    /* Crypto verification not implemented yet. */
+    /* When Stage 5 is done, this will call crypto_sha256 and */
+    /* crypto_verify_signature before returning BOOT_OK. */
     return BOOT_ERR_NOT_IMPLEMENTED;
 }
