@@ -1,4 +1,5 @@
 #include "../include/uart_protocol.h"
+#include "../include/hardware.h"
 
 #define REG32(address) (*(volatile uint32_t *)(address))
 
@@ -54,9 +55,82 @@ bool uart_protocol_read_char(char *ch){
     return true;
 }
 
-boot_status_t uart_protocol_receive_packet(uart_packet_t *packet){
-    (void)packet;
-    return BOOT_ERR_NOT_IMPLEMENTED;
+static bool uart_receive_byte_timeout(uint8_t *byte, uint32_t timeout_ms){
+    /* ~1000 delays of 100 cycles approx 1 ms on 8 MHz HSI */
+    uint32_t loops = timeout_ms * 80u;
+
+    while (loops > 0u){
+        if (uart_protocol_read_char((char *)byte)){
+            return true;
+        }
+        hardware_delay(100u);
+        loops--;
+    }
+
+    return false;
+}
+
+boot_status_t uart_protocol_receive_packet(uart_packet_t *packet, uint32_t timeout_ms){
+    uint8_t rx_byte;
+    uint8_t header[8];
+    uint8_t calc_checksum = 0u;
+    uint16_t length;
+    uint32_t offset;
+    uint16_t i;
+
+    if (packet == NULL){
+        return BOOT_ERR_INVALID_ARGUMENT;
+    }
+
+    // wait for sync byte (0xAA)
+    while (1){
+        if (!uart_receive_byte_timeout(&rx_byte, timeout_ms)){
+            return BOOT_ERR_UART;
+        }
+        if (rx_byte == UART_SYNC_BYTE){
+            break;
+        }
+    }
+
+    // read header bytes: type(1), offset(4 LE), length(2 LE), checksum(1)
+    for (i = 0u; i < 8u; i++){
+        if (!uart_receive_byte_timeout(&header[i], 100u)){
+            return BOOT_ERR_UART;
+        }
+    }
+
+    packet->type = (uart_packet_type_t)header[0];
+    offset = (uint32_t)header[1] | ((uint32_t)header[2] << 8) | ((uint32_t)header[3] << 16) | ((uint32_t)header[4] << 24);
+    length = (uint16_t)header[5] | ((uint16_t)header[6] << 8);
+
+    if (length > UART_MAX_PAYLOAD){
+        return BOOT_ERR_UART;
+    }
+
+    packet->offset = offset;
+    packet->length = length;
+
+    // receive payload bytes
+    for (i = 0u; i < length; i++){
+        if (!uart_receive_byte_timeout(&packet->payload[i], 100u)){
+            return BOOT_ERR_UART;
+        }
+    }
+
+    // verify checksum (XOR sum of type, offset, length, payload)
+    calc_checksum ^= header[0];
+    for (i = 1u; i <= 6u; i++){
+        calc_checksum ^= header[i];
+    }
+    for (i = 0u; i < length; i++){
+        calc_checksum ^= packet->payload[i];
+    }
+
+    if (calc_checksum != header[7]){
+        return BOOT_ERR_UART;
+    }
+
+    return BOOT_OK;
 }
 
 boot_status_t uart_protocol_send_status(boot_status_t status){

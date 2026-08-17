@@ -6,7 +6,7 @@
 
 #include "boot_types.h"
 
-/* ANSI Escape Codes for Terminals */
+// ANSI escape code blackmagic
 #define CONSOLE_CLEAR        "\033[2J\033[H"
 #define CONSOLE_COLOR_RESET  "\033[0m"
 #define CONSOLE_BOLD         "\033[1m"
@@ -20,4 +20,4 @@ void console_print_banner(void);
 void console_print_menu(void);
 void console_clear_screen(void);
 
-#endif /* CONSOLE_H */
+#endif 
