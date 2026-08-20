@@ -16,7 +16,7 @@
 
 ## 2. Flash layout
 
-![Flash layout](docs/misc/flash_layout.png)
+![Flash layout](misc/flash_layout.png)
 
 Constants:
 
@@ -43,7 +43,7 @@ The bootloader does not trust:
 
 ## 4. Boot flow
 
-![Boot flow](docs/misc/boot_flow.png)
+![Boot flow](misc/boot_flow.png)
 
 ## 5. Boot condition
 
